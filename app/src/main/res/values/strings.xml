@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Spotify Streamer Multi-Mode</string>
+    <string name="title_artist_detail">Artist Detail</string>
+    <color name="green">#81b71a</color>
+    <color name="white">#ffffff</color>
+    <string name="title_activity_main">MainActivity</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+</resources>
