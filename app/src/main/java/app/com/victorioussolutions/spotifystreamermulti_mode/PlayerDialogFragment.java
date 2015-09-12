@@ -19,6 +19,7 @@ import android.widget.TextView;
 
 import com.squareup.picasso.Picasso;
 
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -26,55 +27,43 @@ import java.util.TimerTask;
 /**
  * Created by Warrick on 8/16/2015.
  */
-public class PlayerDialogFragment extends DialogFragment {
-    MediaPlayer player = null;
+public class PlayerDialogFragment extends DialogFragment{
+
     String mPlayerState = "new";
     ImageButton mPlayButton = null;
     ArrayList<ParcelableTrack> tracks;
     Integer postition;
+    boolean isPausable = false;
+    boolean isPaused = false;
+    boolean isUsingManualSeek = false;
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        player = new MediaPlayer();
-        //getActivity().findViewById(R.id.playButton).
+
+    void updateTrack() {
+        String mPreviewURL = ((ParcelableTrack) tracks.get(postition)).getPreview_url();
         updateLables();
-        mPlayButton.performClick();
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        player.release();
-        player = null;
+        PlayerService.playNew(mPreviewURL);
     }
 
     void setButtonState_pausable() {
-        ((ImageButton)getView().findViewById(R.id.playButton)).setImageResource(android.R.drawable.ic_media_pause);
+        try {
+            ((ImageButton)getView().findViewById(R.id.playButton)).setImageResource(android.R.drawable.ic_media_pause);
+            isPausable = true;
+        } catch (Exception ex) {
+            // Not really a problem the dialog may have exited.
+        }
+
     }
 
     void setButtonState_playable() {
-        ((ImageButton)getView().findViewById(R.id.playButton)).setImageResource(android.R.drawable.ic_media_play);
-    }
-
-
-    void firstPlay() {
-
-    }
-
-    void updateTrack() {
-
-        String mPreviewURL = ((ParcelableTrack) tracks.get(postition)).getPreview_url();
-        player.stop();
-        player.reset();
         try {
-            player.setDataSource(mPreviewURL);
-            player.prepareAsync();
-        } catch (Exception e) {
-            //TODO: handle exception
+            ((ImageButton)getView().findViewById(R.id.playButton)).setImageResource(android.R.drawable.ic_media_play);
+            isPausable = false;
+        } catch (Exception ex) {
+            // Not really a problem the dialog may have exited.
         }
-        //player.start();
+
     }
+
 
 
     void updateLables() {
@@ -86,6 +75,21 @@ public class PlayerDialogFragment extends DialogFragment {
         Picasso.with(getActivity()).load(mCoverArt).into(mImage);
     }
 
+
+    @Override
+    public void onPause() {
+        PlayerService.callback = null;
+        super.onPause();
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        //if(!PlayerService.isPlaying()) {
+            updateTrack();
+        //}
+    }
+
     /** The system calls this to get the DialogFragment's layout, regardless
      of whether it's being displayed as a dialog or an embedded fragment. */
     @Override
@@ -94,130 +98,134 @@ public class PlayerDialogFragment extends DialogFragment {
 
         tracks = getArguments().getParcelableArrayList("tracks");
         postition = getArguments().getInt("position");
+        final String mPreviewURL = ((ParcelableTrack)tracks.get(postition)).getPreview_url();
 
         // Inflate the layout to use as dialog or embedded fragment
         final View mView =inflater.inflate(R.layout.fragment_player, container, false);
-        mPlayButton = (ImageButton)mView.findViewById(R.id.playButton);
-        TextView mlabel_artist_name = (TextView)mView.findViewById(R.id.label_artist_name);
-        //final String mPreviewURL = getArguments().getString("PreviewURL");
-        final String mPreviewURL = ((ParcelableTrack)tracks.get(postition)).getPreview_url();
-        mlabel_artist_name.setText(mPreviewURL);
-
-
         final SeekBar mSeelBar = (SeekBar)mView.findViewById(R.id.scrub_bar);
+        mSeelBar.setMax(30000);
+
+
+
+
         mSeelBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser) {
-                    player.seekTo(progress * 1000);
-                }
             }
 
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
+                PlayerService.pause();
+                isUsingManualSeek = true;
                 //player.pause();
+                //GlobalRefs.myService.pause();
             }
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
                 Integer mProgress = seekBar.getProgress();
-                player.seekTo(mProgress * 1000);
-                //player.start();
+                PlayerService.seekTo(mProgress);
+                PlayerService.resume();
+                isUsingManualSeek = false;
+
             }
         });
 
+
+
+        PlayerService.callback = new MyCallback() {
+            @Override
+            public void playStarted() {
+                setButtonState_pausable();
+                isPaused = false;
+            }
+
+            @Override
+            public void playStopped() {
+                setButtonState_playable();
+            }
+
+            @Override
+            public Integer playPositionChanged(final Integer position) {
+
+                if(!isUsingManualSeek) {
+                    //Make sure you update Seekbar on UI thread
+                    getActivity().runOnUiThread(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            mSeelBar.setProgress(position);
+
+                            String zPos = "0";
+                            if(position > 1000) {
+                                if(position < 10000) {
+                                    zPos = "0"+ new DecimalFormat("#.##").format(position/1000);
+                                } else {
+                                    zPos =  new DecimalFormat("#.##").format(position/1000);
+                                }
+                            } else {
+                                zPos = "00";
+                            }
+
+                            TextView zLabel = (TextView) getView().findViewById(R.id.label_track_position);
+                            if(zLabel != null) {
+                                zLabel.setText("0:" + zPos);
+                            }
+                        }
+                    });
+
+                }
+
+                return position;
+            }
+
+
+        };
+
+
+        mPlayButton = (ImageButton)mView.findViewById(R.id.playButton);
+        mPlayButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(isPausable) {
+                    PlayerService.pause();
+                    isPaused = true;
+                } else {
+                    if(isPaused) {
+                        PlayerService.resume();
+                    } else {
+                        updateTrack();
+                    }
+                }
+            }
+        });
+
+        // Handle the previous button
         mView.findViewById(R.id.previousTrackButton).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (postition > 0) {
                     postition = postition - 1;
-                    updateLables();
+                    //updateLables();
                     updateTrack();
+                    //setButtonState_pausable();
                 }
             }
         });
 
+        // Handle the next button
         mView.findViewById(R.id.nextTrackButton).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(postition < tracks.size() - 1) {
+                if (postition < tracks.size() - 1) {
                     postition = postition + 1;
-                    updateLables();
+                    //updateLables();
                     updateTrack();
+                    //setButtonState_pausable();
+                    //Log.i("NEXT", "Set button to pausable");
                 }
             }
         });
-
-        mView.findViewById(R.id.playButton).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-
-                    switch (mPlayerState) {
-                        // we've
-                        case "new" :
-                            mPlayerState = "setting up";
-                            try {
-                                player.setAudioStreamType(AudioManager.STREAM_MUSIC);
-                                player.setDataSource(mPreviewURL);
-                            } catch (Exception e) {
-                                // TODO: handle exception
-                                mPlayerState = "stopped";
-                            }
-                            //player.prepare();
-                            player.prepareAsync();
-
-                            player.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                                @Override
-                                public void onCompletion(MediaPlayer mp) {
-                                    setButtonState_playable();
-                                    mPlayerState = "new";
-                                    player.reset();
-                                }
-                            });
-
-                            player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                                @Override
-                                public void onPrepared(MediaPlayer mp) {
-                                    mPlayerState = "playing";
-                                    player.start();
-                                    setButtonState_pausable();
-                                    int duration = player.getDuration() / 1000;
-                                    mSeelBar.setMax(duration);
-                                }
-                            });
-
-                            final Handler mHandler = new Handler();
-                            //Make sure you update Seekbar on UI thread
-                            getActivity().runOnUiThread(new Runnable() {
-
-                                @Override
-                                public void run() {
-                                    if (player != null) {
-                                        int mCurrentPosition = player.getCurrentPosition() / 1000;
-                                        mSeelBar.setProgress(mCurrentPosition);
-                                    }
-                                    mHandler.postDelayed(this, 1000);
-                                }
-                            });
-
-                            break;
-                        case "paused":
-                            player.start();
-                            mPlayerState = "playing";
-                            setButtonState_pausable();
-                            break;
-                        case "playing":
-                            player.pause();
-                            mPlayerState = "paused";
-                            setButtonState_playable();
-                            break;
-                    }
-
-
-
-            }
-        });
-
 
         return mView;
 
@@ -235,4 +243,5 @@ public class PlayerDialogFragment extends DialogFragment {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         return dialog;
     }
+
 }

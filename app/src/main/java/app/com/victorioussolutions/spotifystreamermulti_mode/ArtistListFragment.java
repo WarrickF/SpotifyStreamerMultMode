@@ -40,7 +40,7 @@ import kaaes.spotify.webapi.android.models.ArtistsPager;
 public class ArtistListFragment extends ListFragment {
 
     public ArtistsAdapter artistArrayAdapter = null;
-    ArrayList<Artist> artistList = new ArrayList<Artist>();
+    private static ArrayList<Artist> artistList = new ArrayList<Artist>();
     private static final String TAG = "SpotifyMain";
 
     private View v;
