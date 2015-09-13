@@ -7,24 +7,26 @@ import android.media.MediaPlayer;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
+import android.widget.Toast;
 
 
 interface MyCallback {
     void playStarted();
     void playStopped();
     Integer playPositionChanged(Integer position);
+    String playError(String error);
 }
 
 public class PlayerService extends Service {
     private final IBinder myBinder = new MyLocalBinder();
     static MediaPlayer player = null;
+    public static String currentlyPlayingURL = null;
 
     static MyCallback callback;
 
     public static void onPlayStarted() {
         if(callback != null)
             callback.playStarted();
-
     }
 
     public static void onPlayStopped() {
@@ -35,6 +37,14 @@ public class PlayerService extends Service {
     public static void onplayPositionChanged(Integer position) {
         if(callback != null)
             callback.playPositionChanged(position);
+    }
+
+    public static String playerError(String error) {
+        onplayPositionChanged(0);
+        onPlayStopped();
+        currentlyPlayingURL = null;
+        callback.playError(error);
+        return error;
     }
 
     public PlayerService() {
@@ -62,6 +72,7 @@ public class PlayerService extends Service {
     }
 
     public static void playNew(String aPreviewURL) {
+        currentlyPlayingURL = aPreviewURL;
         // If we were using this instance in the past. Release it before we do anything else.
         if(player != null) {
             if(player.isPlaying()) {
@@ -81,6 +92,10 @@ public class PlayerService extends Service {
                 mp.stop();
                 mp.release();
                 player = null;
+
+
+                playerError("Something went wrong while playing. Please try again.");
+
                 return true;
             }
         });
@@ -88,6 +103,7 @@ public class PlayerService extends Service {
         player.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
             @Override
             public void onCompletion(MediaPlayer mp) {
+                currentlyPlayingURL = null;
                 player.reset();
                 player = null;
             }
@@ -97,6 +113,7 @@ public class PlayerService extends Service {
             player.setDataSource(aPreviewURL);
         } catch (Exception e) {
             Log.e("MediaPlayerService", "Error occurred while setting up player.");
+            playerError("Error occurred while setting up player.");
         }
         player.prepareAsync();
         player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
@@ -111,6 +128,7 @@ public class PlayerService extends Service {
             @Override
             public void onCompletion(MediaPlayer mp) {
                 onPlayStopped();
+                currentlyPlayingURL = null;
             }
         });
 

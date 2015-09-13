@@ -16,6 +16,7 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.squareup.picasso.Picasso;
 
@@ -39,9 +40,13 @@ public class PlayerDialogFragment extends DialogFragment{
 
 
     void updateTrack() {
+
+        getArguments().putInt("CurrentlyPlayingPosition", postition);
         String mPreviewURL = ((ParcelableTrack) tracks.get(postition)).getPreview_url();
         updateLables();
-        PlayerService.playNew(mPreviewURL);
+        if(PlayerService.currentlyPlayingURL != mPreviewURL) {
+            PlayerService.playNew(mPreviewURL);
+        }
     }
 
     void setButtonState_pausable() {
@@ -97,7 +102,16 @@ public class PlayerDialogFragment extends DialogFragment{
                              Bundle savedInstanceState) {
 
         tracks = getArguments().getParcelableArrayList("tracks");
-        postition = getArguments().getInt("position");
+
+
+        Integer zPreviousPosition = getArguments().getInt("CurrentlyPlayingPosition");
+
+        if(zPreviousPosition > 0) {
+            postition = zPreviousPosition;
+        } else {
+            postition = getArguments().getInt("position");
+        }
+
         final String mPreviewURL = ((ParcelableTrack)tracks.get(postition)).getPreview_url();
 
         // Inflate the layout to use as dialog or embedded fragment
@@ -131,8 +145,6 @@ public class PlayerDialogFragment extends DialogFragment{
             }
         });
 
-
-
         PlayerService.callback = new MyCallback() {
             @Override
             public void playStarted() {
@@ -146,6 +158,17 @@ public class PlayerDialogFragment extends DialogFragment{
             }
 
             @Override
+            public String playError(String error) {
+                CharSequence text = error;
+                int duration = Toast.LENGTH_SHORT;
+
+                Toast toast = Toast.makeText(getActivity().getApplicationContext(), text, duration);
+                toast.show();
+
+                return error;
+            }
+
+            @Override
             public Integer playPositionChanged(final Integer position) {
 
                 if(!isUsingManualSeek) {
@@ -154,8 +177,8 @@ public class PlayerDialogFragment extends DialogFragment{
 
                         @Override
                         public void run() {
-                            mSeelBar.setProgress(position);
 
+                            mSeelBar.setProgress(position);
                             String zPos = "0";
                             if(position > 1000) {
                                 if(position < 10000) {
@@ -171,6 +194,7 @@ public class PlayerDialogFragment extends DialogFragment{
                             if(zLabel != null) {
                                 zLabel.setText("0:" + zPos);
                             }
+
                         }
                     });
 

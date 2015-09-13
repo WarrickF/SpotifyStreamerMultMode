@@ -253,22 +253,31 @@ public class ArtistListFragment extends ListFragment {
         protected void onPostExecute(List<Artist> artists) {
             super.onPostExecute(artists);
 
-            if(artists.size() == 0) {
-
-                CharSequence text = "Artist not found. Please try again";
+            if(artists == null) {
+                CharSequence text = "oops something seems to have gone wrong. Please try again.";
                 int duration = Toast.LENGTH_SHORT;
+
                 Toast toast = Toast.makeText(getActivity().getApplicationContext(), text, duration);
                 toast.show();
-
             } else {
+                if(artists.size() == 0) {
 
-                artistArrayAdapter.clear();
-                for (Artist artist : artists) {
-                    Log.d(TAG, "Add Artist: " + artist.name);
-                    artistArrayAdapter.add(artist);
+                    CharSequence text = "Artist not found. Please try again";
+                    int duration = Toast.LENGTH_SHORT;
+                    Toast toast = Toast.makeText(getActivity().getApplicationContext(), text, duration);
+                    toast.show();
+
+                } else {
+
+                    artistArrayAdapter.clear();
+                    for (Artist artist : artists) {
+                        Log.d(TAG, "Add Artist: " + artist.name);
+                        artistArrayAdapter.add(artist);
+                    }
                 }
-
             }
+
+
         }
 
         protected List<Artist> doInBackground(String... artistsToSearchFor) {

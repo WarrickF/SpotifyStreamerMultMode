@@ -19,6 +19,7 @@
         android:text="Artist Name"
         android:gravity="center_vertical"
         android:duplicateParentState="true"
+        android:textColor="@color/bright_foreground_material_light"
         />
 
 </LinearLayout>
