@@ -149,16 +149,25 @@ public class ArtistDetailFragment extends Fragment {
         protected void onPostExecute(Tracks tracks) {
             super.onPostExecute(tracks);
 
-            topTrackAdapter.clear();
-            if(tracks.tracks.size() > 0) {
-                for (Track track : tracks.tracks) {
-                    topTrackAdapter.add(track);
-                }
-            } else {
-                TextView zView = (TextView)getActivity().findViewById(R.id.noTracksMessage);
-                zView.setText("Sorry, we were unable to determine the top tracks");
-            }
+            if(tracks == null) {
 
+                CharSequence text = "Opps something went wrong, please try again.";
+                int duration = Toast.LENGTH_SHORT;
+                Toast toast = Toast.makeText(getActivity().getApplicationContext(), text, duration);
+                toast.show();
+
+            } else {
+
+                topTrackAdapter.clear();
+                if (tracks.tracks.size() > 0) {
+                    for (Track track : tracks.tracks) {
+                        topTrackAdapter.add(track);
+                    }
+                } else {
+                    TextView zView = (TextView) getActivity().findViewById(R.id.noTracksMessage);
+                    zView.setText("Sorry, we were unable to determine the top tracks");
+                }
+            }
         }
 
         protected Tracks doInBackground(String... artistsToSearchFor) {
